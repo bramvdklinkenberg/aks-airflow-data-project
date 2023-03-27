@@ -1,0 +1,107 @@
+name: Manage Azure Infrastructure with Terraform
+
+on:
+  push:
+    paths:
+      - 'infra/scripts/**'
+      - 'infra/terraform/**'
+      - '.github/workflows/terraform.yml'
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+    branches:
+      - main
+    paths:
+      - 'infra/scripts/**'
+      - 'infra/terraform/**'
+      - '.github/workflows/terraform.yml'
+
+env:
+  ENV: 'production'
+  STORAGE_ACCOUNT_TFSTATE_NAME: ${{ secrets.STORAGE_ACCOUNT_TFSTATE_NAME }}
+  STORAGE_ACCOUNT_TFSTATE_CONTAINER_NAME: 'tfstate-aksairflow'
+  STORAGE_ACCOUNT_HUMIDITYDATA_NAME: ${{ secrets.STORAGE_ACCOUNT_HUMIDITYDATA_NAME }}
+  STORAGE_ACCOUNT_HUMIDITYDATA_CONTAINER_NAME: 'humiditydata'
+  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+  POSTGRESQL_CONNECTION_STRING: ${{ secrets.POSTGRESQL_CONNECTION_STRING }}
+  RESOURCE_GROUP_NAME: 'data-project-humidity-home-rg'
+  PROJECT_NAME: 'aksairflow'
+
+jobs:
+  terraform_plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Azure Login
+        uses: Azure/login@v1
+        with:
+          creds: '{"clientId":"${{ env.ARM_CLIENT_ID }}","clientSecret":"${{ env.ARM_CLIENT_SECRET }}","subscriptionId":"${{ env.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ env.ARM_TENANT_ID }}"}'
+      - name: Terraform Plan
+        id: plan
+        run: ./infra/scripts/tf_plan.sh
+        env:
+          ENV: ${{ env.ENV }}
+          PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          STORAGE_ACCOUNT_TFSTATE_NAME: ${{ env.STORAGE_ACCOUNT_TFSTATE_NAME }}
+          STORAGE_ACCOUNT_TFSTATE_CONTAINER_NAME: ${{ env.STORAGE_ACCOUNT_TFSTATE_CONTAINER_NAME }}
+          STORAGE_ACCOUNT_HUMIDITYDATA_NAME: ${{ env.STORAGE_ACCOUNT_HUMIDITYDATA_NAME }}
+          STORAGE_ACCOUNT_HUMIDITYDATA_CONTAINER_NAME: ${{ env.STORAGE_ACCOUNT_HUMIDITYDATA_CONTAINER_NAME }}
+          ARM_CLIENT_ID: ${{ env.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ env.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ env.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ env.ARM_TENANT_ID }}
+      - name: Upload Terraform Plan Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.PROJECT_NAME }}-${{ env.ENV }}-tfplan
+          path: infra/terraform/${{ env.PROJECT_NAME }}-${{ env.ENV }}-tfplan
+          if-no-files-found: error
+
+
+  terraform_apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && github.actor == github.repository_owner || github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged }}
+    needs: terraform_plan
+    environment:
+      name: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Download Terraform Plan Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.PROJECT_NAME }}-${{ env.ENV }}-tfplan
+          path: infra/terraform/
+      - name: Azure Login
+        uses: Azure/login@v1
+        with:
+          creds: '{"clientId":"${{ env.ARM_CLIENT_ID }}","clientSecret":"${{ env.ARM_CLIENT_SECRET }}","subscriptionId":"${{ env.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ env.ARM_TENANT_ID }}"}'
+      - name: Terraform Apply
+        id: apply
+        run: ./infra/scripts/tf_apply.sh
+        env:
+          ENV: ${{ env.ENV }}
+          PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          STORAGE_ACCOUNT_TFSTATE_NAME: ${{ env.STORAGE_ACCOUNT_TFSTATE_NAME }}
+          ARM_CLIENT_ID: ${{ env.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ env.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ env.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ env.ARM_TENANT_ID }}
+      - name: Delete Artifacts
+        uses: geekyeggo/delete-artifact@v2
+        with:
+          name: ${{ env.ENV }}-tfplan
+
