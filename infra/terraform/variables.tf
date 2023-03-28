@@ -60,7 +60,7 @@ variable "aks_vm_size" {
 
 variable "aks_authorized_ip_ranges" {
     type = list(string)
-    default = ["212.187.102.26/32"]
+    default = ["0.0.0.0/32"]
 }
 
 variable "aks_upgrades_channel" {

@@ -1,6 +1,15 @@
 from airflow import DAG
 from datetime import datetime, timedelta
-from airflow.operators.bash import BashOperator
+from airflow.operators.python import PythonOperator
+import os
+
+
+def print_env_vars():
+    env_vars = os.environ
+    for var in env_vars:
+        print(var + "=" + env_vars[var])
+
+
 with DAG(
     "test_dag",
     default_args={
@@ -17,9 +26,9 @@ with DAG(
     tags=["test"],
 ) as dag:
 
-    print_env = BashOperator(
-        task_id="print_date",
-        bash_command="env",
+    print_env = PythonOperator(
+        task_id="print_env",
+        python_callable=print_env_vars
     )
 
     print_env

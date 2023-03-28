@@ -3,7 +3,7 @@ name: Manage Azure Infrastructure with Terraform
 on:
   push:
     paths:
-      - 'infra/scripts/**'
+      - 'infra/scripts/*.sh'
       - 'infra/terraform/**'
       - '.github/workflows/terraform.yml'
     branches:
@@ -17,7 +17,7 @@ on:
     branches:
       - main
     paths:
-      - 'infra/scripts/**'
+      - 'infra/scripts/tf*.sh'
       - 'infra/terraform/**'
       - '.github/workflows/terraform.yml'
 

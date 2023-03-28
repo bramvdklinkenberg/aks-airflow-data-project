@@ -1,0 +1,9 @@
+dags:
+  persistence:
+    enabled: true
+  gitSync:
+    enabled: true
+    repo: 'https://github.com/bramvdklinkenberg/aks-airflow-data-project.git'
+    branch: 'main'
+    subPath: 'apache-airflow/dags/azure_data_dude/etl_dags/'
+    maxFailures: 1

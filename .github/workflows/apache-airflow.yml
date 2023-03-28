@@ -1,0 +1,114 @@
+name: Deploy Airflow Helm Chart
+
+on:
+  workflow_dispatch:
+    branches:
+      - main
+  push:
+    paths:
+      - 'infra/scripts/airflow/**'
+      - '.github/workflows/apache-airflow.yml'
+      - 'apache-airflow/dags/**'
+      - 'apache-airflow/requirements.txt'
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+    branches:
+      - main
+    paths:
+      - 'infra/scripts/install_airflow.sh'
+      - '.github/workflows/apache-airflow.yml'
+
+env:
+  ENV: 'production'
+  RESOURCE_GROUP_NAME: 'data-project-humidity-home-rg'
+  PROJECT_NAME: 'aksairflow'
+  AIRFLOW_K8S_NAMESPACE: 'airflow'
+  AIRFLOW__SECRETS__BACKEND: 'airflow.providers.microsoft.azure.secrets.key_vault.AzureKeyVaultBackend'
+  AIRFLOW__SECRETS__BACKEND_KWARGS: '{"connections_prefix": "airflow-connections", "variables_prefix": "airflow-variables", "vault_url": "${{ secrets.AZURE_KEY_VAULT_URL }}" }'
+  AZURE_CRED: 'azure-credentials'
+
+jobs:
+  helm_lint_airflow:
+    name: Helm Lint Apache Airflow Helm Chart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      # - name: Setup Python
+      #   uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.10'
+      # - name: Install requirements
+      #   run: pip install -r ./apache-airflow/requirements.txt
+      - name: Azure Login
+        uses: Azure/login@v1
+        with:
+          creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+      - name: Get AKS Kube Config
+        run: ./infra/scripts/aks_get_credentials.sh
+        env:
+          RESOURCE_GROUP_NAME: ${{ env.RESOURCE_GROUP_NAME }}
+          AKS_RESOURCE_NAME: ${{ env.PROJECT_NAME }}
+      - name: Helm Lint Apache Airflow Helm Chart
+        run: ./infra/scripts/airflow/install_airflow.sh
+        env:
+          DRY_RUN: client
+          AZURE_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+          AZURE_KEY_VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
+          AZURE_CRED: ${{ env.AZURE_CRED }}
+          AIRFLOW__SECRETS__BACKEND: ${{ env.AIRFLOW__SECRETS__BACKEND }}
+          AIRFLOW__SECRETS__BACKEND_KWARGS: ${{ env.AIRFLOW__SECRETS__BACKEND_KWARGS }}
+          AIRFLOW_K8S_NAMESPACE: ${{ env.AIRFLOW_K8S_NAMESPACE }}
+          AIRFLOW_ADMIN_PASSWORD: ${{ secrets.AIRFLOW_ADMIN_PASSWORD }}
+          WEBSERVER_SECRET_KEY: ${{ secrets.WEBSERVER_SECRET_KEY }}
+          FERNET_KEY: ${{ secrets.FERNET_KEY }}
+
+  deploy_airflow:
+    name: Deploy Apache Airflow Helm Chart
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && github.actor == github.repository_owner || github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged || github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner }}
+    needs: helm_lint_airflow
+    environment:
+      name: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install requirements
+        run: pip install -r ./apache-airflow/requirements.txt
+      - name: Azure Login
+        uses: Azure/login@v1
+        with:
+          creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+      - name: Get AKS Kube Config
+        run: ./infra/scripts/aks_get_credentials.sh
+        env:
+          RESOURCE_GROUP_NAME: ${{ env.RESOURCE_GROUP_NAME }}
+          AKS_RESOURCE_NAME: ${{ env.PROJECT_NAME }}
+      - name: Install Airflow Helm Chart
+        run: ./infra/scripts/airflow/install_airflow.sh
+        env:
+          DRY_RUN: client
+          AZURE_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+          AZURE_KEY_VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
+          AZURE_CRED: ${{ env.AZURE_CRED }}
+          AIRFLOW__SECRETS__BACKEND: ${{ env.AIRFLOW__SECRETS__BACKEND }}
+          AIRFLOW__SECRETS__BACKEND_KWARGS: ${{ env.AIRFLOW__SECRETS__BACKEND_KWARGS }}
+          AIRFLOW_K8S_NAMESPACE: ${{ env.AIRFLOW_K8S_NAMESPACE }}
+          AIRFLOW_ADMIN_PASSWORD: ${{ secrets.AIRFLOW_ADMIN_PASSWORD }}
+          WEBSERVER_SECRET_KEY: ${{ secrets.WEBSERVER_SECRET_KEY }}
+          FERNET_KEY: ${{ secrets.FERNET_KEY }}
+

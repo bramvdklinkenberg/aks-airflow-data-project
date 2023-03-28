@@ -25,10 +25,6 @@ resource "azurerm_kubernetes_cluster" "aks-airflow" {
     image_cleaner_interval_hours = 72
 
     automatic_channel_upgrade = var.aks_upgrades_channel
-
-    api_server_access_profile {
-        authorized_ip_ranges = var.aks_authorized_ip_ranges
-    }
     
     service_principal {
         client_id = var.client_id
@@ -38,5 +34,13 @@ resource "azurerm_kubernetes_cluster" "aks-airflow" {
     network_profile {
         network_plugin = "azure"
         network_policy = "azure"
+    }
+
+    lifecycle {
+        ignore_changes = [
+            default_node_pool[0].node_count,
+            azure_policy_enabled,
+            microsoft_defender
+        ]
     }
 }
