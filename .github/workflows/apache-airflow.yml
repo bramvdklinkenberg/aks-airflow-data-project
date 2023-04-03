@@ -99,7 +99,7 @@ jobs:
       - name: Install Airflow Helm Chart
         run: ./infra/scripts/airflow/install_airflow.sh
         env:
-          DRY_RUN: client
+          DRY_RUN: none
           AZURE_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
