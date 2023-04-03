@@ -17,11 +17,11 @@ kubectl create namespace "${AIRFLOW_K8S_NAMESPACE}" \
 
 echo 'Applying Azure Secrets...'
 kubectl create secret generic "$AZURE_CRED" \
-    --from-literal=AZURE_CLIENT_ID="$ARM_CLIENT_ID" \
-    --from-literal=AZURE_CLIENT_SECRET="$ARM_CLIENT_SECRET" \
+    --from-literal=AZURE_CLIENT_ID="$AZURE_CLIENT_ID" \
+    --from-literal=AZURE_CLIENT_SECRET="$AZURE_CLIENT_SECRET" \
+    --from-literal=AZURE_TENANT_ID="$AZURE_TENANT_ID" \
     --from-literal=AIRFLOW__SECRETS__BACKEND="$AIRFLOW__SECRETS__BACKEND" \
     --from-literal=AIRFLOW__SECRETS__BACKEND_KWARGS="$AIRFLOW__SECRETS__BACKEND_KWARGS" \
-    --from-literal=AZURE_TENANT_ID="$ARM_TENANT_ID" \
     --namespace "$AIRFLOW_K8S_NAMESPACE" \
     --dry-run=client \
     -o yaml | kubectl apply --dry-run="$DRY_RUN" -o name -f -
