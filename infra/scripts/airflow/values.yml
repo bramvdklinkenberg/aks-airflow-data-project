@@ -7,3 +7,9 @@ dags:
     branch: 'main'
     subPath: 'apache-airflow/dags/azure_data_dude/etl_dags/'
     maxFailures: 1
+logs:
+  persistence:
+    enabled: true
+env:
+  - name: SQLALCHEMY_SILENCE_UBER_WARNING
+    value: 1
